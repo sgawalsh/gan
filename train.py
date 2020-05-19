@@ -4,11 +4,12 @@ import torch
 import torch.nn as nn
 import models
 import data
+import matplotlib.pyplot as plt
 
 from pdb import set_trace
 from typing import List, Tuple
 
-def train(input_shape, load_gen, load_disc, gen_true, loss = nn.BCELoss(), batch_size: int = 1, training_steps: int = 500, noise_length: int = 8, show_sample = True, save_models = True, gen_name: str = "gen", disc_name: str = "disc"):
+def train(input_shape, load_gen, load_disc, gen_true, loss = nn.BCELoss(), batch_size: int = 1, training_steps: int = 1000, noise_length: int = 8, show_sample = True, save_models = True, gen_name: str = "gen", disc_name: str = "disc"):
 	
 	generator = load_gen(noise_length, input_shape)
 	discriminator = load_disc(input_shape)
@@ -16,12 +17,15 @@ def train(input_shape, load_gen, load_disc, gen_true, loss = nn.BCELoss(), batch
 	generator_optimizer = torch.optim.Adam(generator.parameters(), lr=0.001)
 	discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=0.001)
 	
+	true_data_gen = gen_true(batch_size = batch_size)
+	
 	for i in range(training_steps):
 		noise = torch.randint(0, 2, size=(batch_size, noise_length)).float()
 		generated_data = generator(noise)
 		
-		true_data = gen_true(input_shape, batch_size = batch_size)
+		
 		true_labels = torch.tensor([1] * batch_size).float() # true labels
+		true_data = true_data_gen.__next__()[0]
 		
 		generator_optimizer.zero_grad()
 		generator_discriminator_out = discriminator(generated_data)
@@ -42,7 +46,12 @@ def train(input_shape, load_gen, load_disc, gen_true, loss = nn.BCELoss(), batch
 		
 	if show_sample:
 		for i in range(10):
-			print(generator(torch.randint(0, 2, size=(1, noise_length)).float()))
+			#print(generator(torch.randint(0, 2, size=(1, noise_length)).float()))
+			img = generator(torch.randint(0, 2, size=(1, noise_length)).float())
+			img = img.view(img.shape[2], img.shape[3])
+			plt.imshow(img.detach())
+			plt.show()
+			
 	
 	#save models
 	if save_models:
@@ -60,6 +69,7 @@ def sample(modelClass, input_length: int, output_length: torch.Size, sample_num:
 
 
 #set_trace()
-train(torch.Size([5]), models.sample_generator, models.sample_discriminator, data.generate_even_data, batch_size = 16)
-sample(models.sample_generator, 8, torch.Size([5]))
-print("done")
+#train(torch.Size([5]), models.sample_generator, models.sample_discriminator, data.generate_even_data, batch_size = 16, training_steps = 1000)
+train(torch.Size([5]), models.gen_conv_net, models.disc_conv_net, data.mnist, batch_size = 1, training_steps = 1000)
+
+#sample(models.sample_generator, 8, torch.Size([5]))
