@@ -2,9 +2,15 @@ import math
 import numpy as np
 import torch
 import torchvision
+import matplotlib.pyplot as plt
 
 from typing import List, Tuple
 from pdb import set_trace
+
+def tensor_to_image(img):
+	img = img.view(img.shape[2], img.shape[3], img.shape[1])
+	plt.imshow(img.detach())
+	plt.show()
 
 def create_binary_list_from_int(number: int) -> List[int]:
 	if number < 0 or type(number) is not int:
@@ -26,10 +32,61 @@ def generate_even_data(outShape, batch_size: int = 16) -> Tuple[List[int], List[
 
 		yield torch.tensor(data).float()
 	
-def mnist(batch_size: int = 1):
+def mnist(batch_size: int = 1, resize: int = 28):
 	train_loader = torch.utils.data.DataLoader(
 		torchvision.datasets.MNIST(
 			root = './data',
+			train = True,
+			download = True,
+			transform = torchvision.transforms.Compose([
+				torchvision.transforms.Resize(resize),
+				torchvision.transforms.CenterCrop(resize),
+				torchvision.transforms.ToTensor()
+			])
+		),
+	batch_size=batch_size, shuffle=True)
+	
+	while True:
+		ex = enumerate(train_loader)
+		_, data = next(ex)
+		yield data[0]
+		
+def fashion(batch_size: int = 1, resize: int = 28):
+	train_loader = torch.utils.data.DataLoader(
+		torchvision.datasets.FashionMNIST(
+			root = './data',
+			train = True,
+			download = True,
+			transform = torchvision.transforms.Compose([
+				torchvision.transforms.Resize(resize),
+				torchvision.transforms.CenterCrop(resize),
+				torchvision.transforms.ToTensor()
+			])
+		),
+	batch_size=batch_size, shuffle=True)
+	
+	while True:
+		_, data = next(iter(train_loader))
+		yield data[0]
+
+def celeb(batch_size: int = 1, resize: int = 28):
+	train_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder(
+		root = './data/test',
+		transform = torchvision.transforms.Compose([
+			#torchvision.transforms.Resize(resize),
+			#torchvision.transforms.CenterCrop(resize),
+			torchvision.transforms.ToTensor(),
+			#torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+		])
+	), batch_size=batch_size, shuffle=False)
+	while True:
+		data, _ = next(iter(train_loader))
+		yield data
+		
+def general_loader(dataset, batch_size: int = 1):
+	train_loader = torch.utils.data.DataLoader(
+		dataset(
+			root = data,
 			train = True,
 			download = True,
 			transform = torchvision.transforms.Compose([
@@ -38,8 +95,7 @@ def mnist(batch_size: int = 1):
 		),
 	batch_size=batch_size, shuffle=True)
 	
-	print(train_loader)
 	while True:
 		ex = enumerate(train_loader)
 		_, data = next(ex)
-		yield data
+		yield data[0]
