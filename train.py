@@ -38,7 +38,6 @@ def train(load_gen, load_disc, gen_true, loss = nn.BCELoss(), batch_size: int = 
 	discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=0.001)
 	
 	true_data_gen = gen_true(batch_size = batch_size, resize = resize)
-	set_trace()
 	true_labels = torch.tensor([1] * batch_size).float() # true labels
 	
 	disc_loss_all, gen_loss_all, disc_loss_current, gen_loss_current = [],[],[],[]

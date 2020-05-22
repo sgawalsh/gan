@@ -8,8 +8,8 @@ from typing import List, Tuple
 from pdb import set_trace
 
 def tensor_to_image(img):
-	img = img.view(img.shape[2], img.shape[3], img.shape[1])
-	plt.imshow(img.detach())
+	img = np.squeeze(img)
+	plt.imshow(img.permute(1,2,0))
 	plt.show()
 
 def create_binary_list_from_int(number: int) -> List[int]:
@@ -71,7 +71,7 @@ def fashion(batch_size: int = 1, resize: int = 28):
 
 def celeb(batch_size: int = 1, resize: int = 28):
 	train_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder(
-		root = './data/test',
+		root = './data/celeb',
 		transform = torchvision.transforms.Compose([
 			#torchvision.transforms.Resize(resize),
 			#torchvision.transforms.CenterCrop(resize),
