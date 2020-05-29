@@ -115,12 +115,12 @@ class full_conv_gen_64(nn.Module):
 		self.conv5 = nn.ConvTranspose2d( ngf, out_channels, 4, 2, 1, bias=False)
 		self.tanh = nn.Tanh()
 		
-		def forward(self, x):
-			x = F.relu(self.batch1(self.conv1(x)))
-			x = F.relu(self.batch2(self.conv2(x)))
-			x = F.relu(self.batch3(self.conv3(x)))
-			x = F.relu(self.batch4(self.conv4(x)))
-			return self.tanh(self.conv5(x))
+	def forward(self, x):
+		x = F.relu(self.batch1(self.conv1(x)))
+		x = F.relu(self.batch2(self.conv2(x)))
+		x = F.relu(self.batch3(self.conv3(x)))
+		x = F.relu(self.batch4(self.conv4(x)))
+		return self.tanh(self.conv5(x))
 		
 class full_conv_disc_64(nn.Module):
 	def __init__(self, input_channels: int = 3, ndf: int = 64):
@@ -182,3 +182,78 @@ class full_conv_gen_28(nn.Module):
 		x = F.relu(self.batch3(self.conv3(x)))
 		x = F.relu(self.batch4(self.conv4(x)))
 		return self.tanh(self.conv5(x))
+		
+class full_conv_gen_64_resid(nn.Module):
+	def __init__(self, input_channels: int = 100, out_channels: int = 3, ngf: int = 64):
+		super(full_conv_gen_64_resid, self).__init__()
+		self.conv1 = nn.ConvTranspose2d(input_channels, ngf * 8, 4, 1, 0, bias=False)
+		self.batch1 = nn.BatchNorm2d(ngf * 8)# state size. (ngf*8) x 4 x 4
+		
+		self.conv2 = nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False)
+		self.batch2 = nn.BatchNorm2d(ngf * 4)# state size. (ngf*4) x 8 x 8
+		
+		self.conv3 = nn.ConvTranspose2d( ngf * 4, ngf * 2, 4, 2, 1, bias=False)
+		self.batch3 = nn.BatchNorm2d(ngf * 2)# state size. (ngf*2) x 16 x 16
+		
+		self.conv4 = nn.ConvTranspose2d( ngf * 2, ngf, 4, 2, 1, bias=False)
+		self.batch4 = nn.BatchNorm2d(ngf)# state size. (ngf) x 32 x 32
+		
+		self.conv5 = nn.ConvTranspose2d( ngf, out_channels, 4, 2, 1, bias=False)
+		self.tanh = nn.Tanh()
+		
+		self.upsample = nn.Upsample(scale_factor = 2)
+		self.channel_pool = channel_pool(2)
+		
+	def forward(self, x):
+		x = F.relu(self.batch1(self.conv1(x)))
+		res = x
+		x = F.relu(self.batch2(self.conv2(x)))
+		x += self.channel_pool(self.upsample(res))
+		res = x
+		x = F.relu(self.batch3(self.conv3(x)))
+		x += self.channel_pool(self.upsample(res))
+		res = x
+		x = F.relu(self.batch4(self.conv4(x)))
+		x += self.channel_pool(self.upsample(res))
+		return self.tanh(self.conv5(x))
+		
+class full_conv_disc_64_resid(nn.Module):
+	def __init__(self, input_channels: int = 3, ndf: int = 64):
+		super(full_conv_disc_64_resid, self).__init__()
+		self.conv1 = nn.Conv2d(input_channels, ndf, 4, 2, 1, bias=False) # (in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros')
+		
+		self.conv2 = nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False)
+		self.batch2 = nn.BatchNorm2d(ndf * 2)
+		self.skip2 = nn.Conv2d(ndf, ndf * 2, 1, 2, bias=False)
+		
+		self.conv3 = nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False)
+		self.batch3 = nn.BatchNorm2d(ndf * 4)
+		self.skip3 = nn.Conv2d(ndf * 2, ndf * 4, 1, 2, bias=False)
+		
+		self.conv4 = nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False)
+		self.batch4 = nn.BatchNorm2d(ndf * 8)
+		self.skip4 = nn.Conv2d(ndf * 4, ndf * 8, 1, 2, bias=False)
+		
+		self.conv5 = nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False)
+
+	def forward(self, x):
+		x = F.leaky_relu(self.conv1(x), .2)
+		res = x
+		x = F.leaky_relu(self.batch2(self.conv2(x)), .2)
+		x += self.skip2(res)
+		res = x
+		x = F.leaky_relu(self.batch3(self.conv3(x)), .2)
+		x += self.skip3(res)
+		res = x
+		x = F.leaky_relu(self.batch4(self.conv4(x)), .2)
+		x += self.skip4(res)
+		return torch.sigmoid(self.conv5(x))
+		
+class channel_pool(torch.nn.AvgPool1d):
+	def forward(self, input):
+		n, c, w, h = input.size()
+		input = input.view(n,c,w*h).permute(0,2,1)
+		pooled =  F.avg_pool1d(input, self.kernel_size, self.stride, self.padding, self.ceil_mode, self.count_include_pad)
+		_, _, c = pooled.size()
+		pooled = pooled.permute(0,2,1)
+		return pooled.view(n, c, w, h)
