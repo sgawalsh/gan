@@ -1,4 +1,4 @@
-# gan
+# ganTrainer
 
 The goal of this project was to implement a framework to allow a user to quickly experiment with different models and datasets to train Generation Adverserial Networks (GANs). The project uses a similar structure to my stvNet project, with model structures being handled in the `models.py` file, data-related functions being handled in the `data.py` file, and the main training function being handled in the `train.py` file.
 
